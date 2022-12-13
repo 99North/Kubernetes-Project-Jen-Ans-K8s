@@ -1,13 +1,52 @@
-pipeline{
-    agent any{
-        stages{
-            stage('Git Checkout'){
-                steps{
-                    script{
-                        git branch: 'main', url: 'https://github.com/99North/Kubernetes-Project-Jen-Ans-K8s.git'
-                    }
-                }
-            }
-        }
+node{
+    stage('Git Checkout'){
+        git branch: 'main', url: 'https://github.com/99North/Kubernetes-Project-Jen-Ans-K8s.git'
     }
+    
+    stage('Sending Docker file to Ansible over SSH'){
+        sshagent(['ansible-ubuntu']) {
+                    sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61'
+                    sh 'scp /var/lib/jenkins/workspace/pipeline-demo/* ubuntu@172.31.66.61:/home/ubuntu'
+                    }
+    }
+    
+stage('Docker Build Image'){
+    sshagent(['ansible-ubuntu']) {
+                sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 cd /home/ubuntu'
+                sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 docker image build -t $JOB_NAME:v1.$BUILD_ID .'
+                }
+}   
+
+
+stage('Docker Image Tag'){
+    sshagent(['ansible-ubuntu']){
+        sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 docker image tag $JOB_NAME:v1.$BUILD_ID debiprasad007/$JOB_NAME:latest'
+    }
+}
+
+stage('Copy Files frm Ansible to Kubernetes'){
+    sshagent(['kubernetes-key']) {
+                sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.74.60'
+                sh 'scp /var/lib/jenkins/workspace/pipeline-demo/* ubuntu@172.31.74.60:/home/ubuntu'
+                    }
+}
+ 
+ 
+ 
+stage('Kbernetes Deployement Using Ansible'){
+    sshagent(['ansible-ubuntu']){
+        sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 cd /home/ubuntu'
+        sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 ansible -m ping node'
+        sh 'ssh -o StrictHostKeyChecking=no ubuntu@172.31.66.61 ansible-playbook ansible.yaml'
+    }
+    
+}
+    
+
+    
+    
+    
+    
+    
+    
 }
